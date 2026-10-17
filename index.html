@@ -317,7 +317,7 @@ function answer(k){
     <div class="verdict ${ok ? "" : "bad"}">
       <h3>${head}<span class="mono">${k === null ? `${lim()}.0초+` : (ms/1000).toFixed(1) + "초"}</span></h3>
       <p>${tex(c.key)}</p>
-      ${c.algo ? `<span class="algo">${esc(c.algo)} · ${c.algoSrc === "노트" ? "알고리즘 노트" : c.algoSrc === "약점노트" ? "약점 노트" : "교재 보충"}</span>` : ""}
+      ${c.algo ? `<span class="algo">${esc(c.algo)} · ${c.algoSrc === "노트" ? "알고리즘 노트" : c.algoSrc === "약점노트" ? "약점 노트" : c.algoSrc === "직접 제안" ? "직접 제안" : "교재 보충"}</span>` : ""}
     </div>`;
   app.querySelector("#next-wrap").hidden = false;
   const fb = app.querySelector("#fb");
