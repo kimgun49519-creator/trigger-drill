@@ -22,18 +22,18 @@
 :root{
   --paper:#f6f4ef; --sheet:#ffffff; --ink:#1d2433; --muted:#667085; --rule:#e6dfd6;
   --omr:#d9604a; --omr-soft:#fbe6e1; --good:#1f8a5b; --good-soft:#e2f3ea; --bad:#c2412d; --bad-soft:#fbe4df;
-  --bar:#1d2433; --track:#ece7df;
+  --bar:#1d2433; --track:#ece7df; --mid:#c98a1b;
   --f-body:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --paper:#111a30; --sheet:#17203a; --ink:#ece8df; --muted:#9aa3b8; --rule:#2a3555;
   --omr:#f47e68; --omr-soft:#3a2830; --good:#4cc38a; --good-soft:#163a31; --bad:#f2836f; --bad-soft:#3d2228;
-  --bar:#ece8df; --track:#26314f; color-scheme:dark}}
+  --bar:#ece8df; --track:#26314f; --mid:#e3b04b; color-scheme:dark}}
 :root[data-theme="dark"]{
   --paper:#111a30; --sheet:#17203a; --ink:#ece8df; --muted:#9aa3b8; --rule:#2a3555;
   --omr:#f47e68; --omr-soft:#3a2830; --good:#4cc38a; --good-soft:#163a31; --bad:#f2836f; --bad-soft:#3d2228;
-  --bar:#ece8df; --track:#26314f; color-scheme:dark}
+  --bar:#ece8df; --track:#26314f; --mid:#e3b04b; color-scheme:dark}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
@@ -67,6 +67,27 @@ math{font-size:1.05em}
 .seg button{border:0;background:none;padding:7px 16px;cursor:pointer;font-family:var(--f-mono);font-size:14px}
 .seg button+button{border-left:1.5px solid var(--rule)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.tabs{display:flex;gap:3px;background:var(--track);border-radius:12px;padding:3px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:1 0 auto;min-width:96px;border:0;background:none;padding:7px 10px;border-radius:9px;font-size:14.5px;font-weight:600;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;line-height:1.25}
+.tabs button small{font-size:11px;font-weight:500;opacity:.8}
+.tabs button[aria-selected="true"]{background:var(--sheet);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.quick{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-top:-4px}
+.quick::-webkit-scrollbar{display:none}
+.q{flex:none;border:1.5px solid var(--rule);background:var(--sheet);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.q i{width:7px;height:7px;border-radius:50%}
+.q:active{border-color:var(--omr);background:var(--omr-soft)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (min-width:560px){.tiles{grid-template-columns:repeat(3,1fr)}}
+.tile{border:1.5px solid var(--rule);background:var(--sheet);border-radius:14px;padding:10px 11px;display:flex;flex-direction:column;gap:6px;text-align:left;cursor:pointer;min-height:96px;min-width:0}
+.tile[aria-pressed="true"]{border-color:var(--omr);background:var(--omr-soft)}
+.tile .tn{font-family:var(--f-mono);font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.tile .bk{font-family:var(--f-body);margin-left:5px;font-size:10.5px;border:1px solid var(--rule);border-radius:5px;padding:0 4px}
+.tile b{font-size:14px;font-weight:600;line-height:1.3;flex:1}
+.tile .tc{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.mbar{display:block;height:5px;background:var(--track);border-radius:3px;overflow:hidden}
+.mbar>span{display:block;height:100%;border-radius:3px}
+.selnote{margin:0;font-size:13px;color:var(--muted)}
 .actions{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:8px}
 .btn{border:0;border-radius:14px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;background:var(--ink);color:var(--paper);width:100%}
 .btn.alt{background:var(--sheet);color:var(--ink);border:1.5px solid var(--rule);font-weight:600}
@@ -180,6 +201,12 @@ function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|
 const units = () => [...new Set(CARDS.map(c => c.unit))];
 const subjects = () => [...new Set(CARDS.map(c => c.subject))];
 let unitSubj = {};
+function unitAcc(u){
+  let seen = 0, miss = 0;
+  for(const c of CARDS) if(c.unit === u){ const s = S.cards[c.id]; if(s){ seen += s.seen; miss += s.miss; } }
+  return seen ? Math.max(0, seen - miss) / seen : null;
+}
+const accColor = p => p == null ? "var(--track)" : p < .5 ? "var(--bad)" : p < .8 ? "var(--mid)" : "var(--good)";
 function activeCards(){
   const u = S.settings.units;
   return CARDS.filter(c => !u.length || u.includes(c.unit));
@@ -208,22 +235,38 @@ function home(){
   const pending = CARDS.filter(isPending);
   const seen = CARDS.filter(c => S.cards[c.id] && S.cards[c.id].seen).length;
   const mastered = CARDS.filter(c => S.cards[c.id] && S.cards[c.id].box >= 3).length;
-  const allU = units();
+  const allU = units(), subs = subjects();
+  if(!subs.includes(S.settings.tab)) S.settings.tab = subs[0];
+  const tab = S.settings.tab;
+  const tabUnits = allU.filter(u => unitSubj[u] === tab);
+  const tabBooks = [...new Set(CARDS.filter(c => c.subject === tab).map(c => c.book))];
+  const sel = S.settings.units;
+  const selCount = CARDS.filter(c => sel.includes(c.unit)).length;
   app.innerHTML = `
     <header class="brand"><h1>트리거 <span>드릴</span></h1><span class="label mono">${CARDS.length}문제</span></header>
-    <p class="lede">문제 조건을 보고 꺼낼 정리·방법을 고르세요. 계산은 하지 않습니다.</p>
     <section class="stats" aria-label="학습 현황">
       <div class="stat"><b>${seen}<small style="font-size:14px">/${CARDS.length}</small></b><small>풀어 본 카드</small></div>
       <div class="stat"><b>${mastered}</b><small>3연속 이상 정답</small></div>
       <div class="stat ${pending.length ? "alert" : ""}"><b>${pending.length}</b><small>재출제 대기</small></div>
     </section>
-    <div id="units" class="units">
-      <div class="chips"><button class="chip" id="u-all" aria-pressed="${!S.settings.units.length}">전체 <span class="n">${CARDS.length}</span></button></div>
-      ${subjects().map((sj,si) => `<section class="group">
-        <span class="label">${esc(sj)}</span>
-        <div class="chips">${allU.filter(u => unitSubj[u] === sj).map(u => { const i = allU.indexOf(u); return `<button class="chip" id="u-${i}" data-u="${esc(u)}" aria-pressed="${S.settings.units.includes(u)}">${esc(u)} <span class="n">${CARDS.filter(c=>c.unit===u).length}</span></button>`; }).join("")}</div>
-      </section>`).join("")}
+    <div class="tabs" role="tablist" id="tabs">${subs.map(s => { const bk = [...new Set(CARDS.filter(c => c.subject === s).map(c => c.book))]; return `<button role="tab" data-s="${esc(s)}" aria-selected="${s===tab}">${esc(s)}<small>${esc(bk.join(" · "))}</small></button>`; }).join("")}</div>
+    <div class="quick" id="quick">
+      <button class="q" data-q="weak"><i style="background:var(--bad)"></i>약한 단원</button>
+      <button class="q" data-q="new"><i style="background:var(--track);outline:1px solid var(--rule)"></i>안 푼 단원</button>
+      <button class="q" data-q="all">이 과목 전체</button>
+      <button class="q" data-q="none">선택 해제</button>
     </div>
+    <div class="tiles" id="units">${tabUnits.map(u => {
+      const m = u.match(/^([\d~]+강)\s+(.*)$/) || [null, "", u];
+      const p = unitAcc(u), n = CARDS.filter(c => c.unit === u).length;
+      const bk = tabBooks.length > 1 ? `<span class="bk">${esc(CARDS.find(c => c.unit === u).book)}</span>` : "";
+      return `<button class="tile" data-u="${esc(u)}" aria-pressed="${sel.includes(u)}">
+        <span class="tn"><span>${esc(m[1])}${bk}</span><span>${p == null ? "–" : Math.round(p*100) + "%"}</span></span>
+        <b>${esc(m[2])}</b>
+        <span class="mbar"><span style="width:${p == null ? 0 : Math.round(p*100)}%;background:${accColor(p)}"></span></span>
+        <span class="tc">${n}문제</span>
+      </button>`; }).join("")}</div>
+    <p class="selnote">${sel.length ? `${sel.length}개 단원 선택 · ${selCount}문제` : "선택한 단원이 없으면 전체에서 출제해요"}</p>
     <div class="row2">
       <section class="group">
         <span class="label">한 세트</span>
@@ -240,9 +283,19 @@ function home(){
       <div class="linkrow"><button id="backup">기록 백업·복원</button><button id="reset">기록 초기화</button></div>
     </div>`;
   app.querySelector("#units").onclick = e => {
-    const b = e.target.closest(".chip"); if(!b) return;
-    if(b.id === "u-all") S.settings.units = [];
-    else { const u = b.dataset.u, L = S.settings.units; S.settings.units = L.includes(u) ? L.filter(x=>x!==u) : [...L,u]; }
+    const b = e.target.closest(".tile"); if(!b) return;
+    const u = b.dataset.u, L = S.settings.units; S.settings.units = L.includes(u) ? L.filter(x=>x!==u) : [...L,u];
+    save(); home();
+  };
+  app.querySelector("#tabs").onclick = e => { const b = e.target.closest("[data-s]"); if(!b) return; S.settings.tab = b.dataset.s; save(); home(); };
+  app.querySelector("#quick").onclick = e => {
+    const b = e.target.closest("[data-q]"); if(!b) return;
+    const q = b.dataset.q, others = S.settings.units.filter(u => unitSubj[u] !== tab);
+    let pickU = [];
+    if(q === "weak") pickU = tabUnits.filter(u => { const p = unitAcc(u); return p != null && p < 0.7; });
+    if(q === "new") pickU = tabUnits.filter(u => unitAcc(u) == null);
+    if(q === "all") pickU = tabUnits.slice();
+    S.settings.units = q === "none" ? [] : [...others, ...pickU];
     save(); home();
   };
   app.querySelector("#size").onclick = e => { const b = e.target.closest("button"); if(!b) return; S.settings.size = +b.dataset.n; save(); home(); };
