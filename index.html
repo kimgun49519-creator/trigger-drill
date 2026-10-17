@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}.question-figure{display:block;max-width:100%;height:auto;max-height:280px;margin:18px auto 0;background:#fff;border-radius:4px}
+</style>
 <title>트리거 드릴</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -474,6 +475,7 @@ function question(){
     <article class="sheet">
       <div class="meta"><span class="unit">${esc(c.unit)}${retry ? " · 다시" : ""}</span><span>${esc(c.source || "")} · 기준 ${T}초</span></div>
       <p class="trigger">${tex(c.trigger)}</p>
+      ${c.figure && /^figures\/eb2-l\d{2}-q\d{2}\.jpg$/.test(c.figure) ? `<img class="question-figure" src="${esc(c.figure)}" alt="교재 문제 그림" decoding="async">` : ""}
       <ol class="opts" id="opts" hidden></ol>
       <div id="fb"></div>
     </article>
