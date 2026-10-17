@@ -114,7 +114,7 @@ math{font-size:1.05em}
 .sheet{background:transparent;border:0;padding:0;display:flex;flex-direction:column;gap:16px}
 .meta{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .meta .unit{color:var(--omr);font-weight:600}
-.trigger{font-family:var(--f-serif);font-size:20px;font-weight:500;line-height:1.7;margin:0;overflow-x:auto;overflow-y:hidden;letter-spacing:-.005em}
+.trigger{font-family:var(--f-serif);font-size:20px;font-weight:500;line-height:1.7;margin:0;white-space:pre-line;overflow-x:auto;overflow-y:hidden;letter-spacing:-.005em}
 .opts{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none;border-top:1px solid var(--rule)}
 .opt{width:100%;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;text-align:left;
   background:transparent;border:0;border-bottom:1px solid var(--rule);border-radius:0;padding:14px 4px;cursor:pointer;font-size:15.5px;line-height:1.6}
@@ -128,12 +128,16 @@ math{font-size:1.05em}
 .opt.wrong{background:var(--bad-soft)}
 .opt.wrong .bub{background:var(--bad);border-color:var(--bad);color:var(--paper)}
 .opt.dim{opacity:.6}
+.opt.sel{background:var(--hover)}
+.opt.sel .bub{background:var(--ink);color:var(--paper)}
+.multi-note{margin:0;padding:6px 0 8px;background:var(--paper);font-size:13.5px;color:var(--muted)}
+.multi-note b{color:var(--ink)}
 .opt.none{grid-template-columns:1fr;color:var(--muted);font-size:14px;font-style:italic;text-align:center}
 .verdict{display:flex;flex-direction:column;gap:6px;border-left:3px solid var(--good);padding:2px 0 2px 14px}
 .verdict.bad{border-color:var(--bad)}
 .verdict h3{margin:0;font-family:var(--f-serif);font-size:18px;font-weight:700;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .verdict h3 .mono{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);font-weight:500}
-.verdict p{margin:0;font-size:15px;overflow-x:auto;overflow-y:hidden;font-family:var(--f-serif)}
+.verdict p{margin:0;font-size:15px;white-space:pre-line;overflow-x:auto;overflow-y:hidden;font-family:var(--f-serif)}
 .verdict .algo{font-size:12px;color:var(--muted);letter-spacing:.02em}
 .units{display:flex;flex-direction:column;gap:14px}
 .row2{display:flex;flex-wrap:wrap;gap:16px 32px}
@@ -312,7 +316,10 @@ function activeCards(){
 }
 // 출제: "세트 수"로 간격을 둔다. 빠르게 떠올려 맞히면 단계가 올라가고, 단계가 높을수록 여러 세트 쉰다.
 const GAP = [0, 1, 2, 4, 8, 16];
-const ansText = c => c.options[c.answer].text;
+// 정답이 여러 개인 카드는 answer가 배열
+const ANS = c => Array.isArray(c.answer) ? c.answer : [c.answer];
+const ansTexts = c => ANS(c).map(k => c.options[k].text);
+const ansText = c => ansTexts(c).join(" + ");
 const isDue = c => { const s = S.cards[c.id]; return !s || !s.seen || (s.due || 0) <= (S.setNo || 0); };
 const isMastered = c => { const s = S.cards[c.id]; return !!(s && (s.streak || 0) >= 3); };
 const flagged = () => CARDS.filter(c => S.cards[c.id] && S.cards[c.id].flag);
@@ -325,7 +332,7 @@ function confusedTexts(){
 function weight(c, conf){
   const s = S.cards[c.id];
   let w = !s || !s.seen ? 2 : (s.box === 0 && s.miss > 0) ? 6 : 1 / (1 + s.box);
-  if(conf.has(ansText(c))) w += 3;
+  if(ansTexts(c).some(t => conf.has(t))) w += 3;
   return w;
 }
 function pick(pool, n){
@@ -492,7 +499,11 @@ function recall(){
   ol.innerHTML = run.order.map((k,pos) => `<li><button class="opt" data-k="${k}" id="opt-${pos}"><span class="bub">${pos+1}</span><span class="t">${tex(c.options[k].text)}</span></button></li>`).join("")
     + `<li><button class="opt none" id="opt-none">떠올린 풀이법이 선지에 없어요</button></li>`;
   ol.hidden = false;
-  app.querySelector("#acts").innerHTML = "";
+  const need = ANS(c).length;
+  run.sel = new Set();
+  app.querySelector("#acts").innerHTML = need > 1
+    ? `<p class="multi-note" id="mnote">정답 <b>${need}개</b> · 모두 고른 뒤 확인을 눌러 주세요</p><button class="btn" id="confirm" disabled>확인 · 0/${need}</button>` : "";
+  if(need > 1) app.querySelector("#confirm").onclick = confirmMulti;
   ol.onclick = e => {
     if(run.stage !== "choose") return;
     if(e.target.closest("#opt-none")){ noneAsk(); return; }
@@ -500,12 +511,14 @@ function recall(){
   };
 }
 function reveal(chosen){
-  const {c} = item(), ol = app.querySelector("#opts");
+  const {c} = item(), ol = app.querySelector("#opts"), A = ANS(c);
+  const picked = chosen == null ? [] : Array.isArray(chosen) ? chosen : [chosen];
   if(ol.hidden){ ol.innerHTML = run.order.map((k,pos) => `<li><button class="opt" data-k="${k}" id="opt-${pos}"><span class="bub">${pos+1}</span><span class="t">${tex(c.options[k].text)}</span></button></li>`).join(""); ol.hidden = false; }
   const none = ol.querySelector("#opt-none"); if(none) none.parentElement.remove();
   ol.querySelectorAll(".opt[data-k]").forEach(b => {
     const k = +b.dataset.k; b.disabled = true;
-    b.classList.add(k === c.answer ? "right" : k === chosen ? "wrong" : "dim");
+    b.classList.remove("sel");
+    b.classList.add(A.includes(k) ? "right" : picked.includes(k) ? "wrong" : "dim");
     b.insertAdjacentHTML("beforeend", `<span class="why">${tex(c.options[k].why)}</span>`);
   });
 }
@@ -517,9 +530,25 @@ function noneAsk(){
   app.querySelector("#mywrong").onclick = () => finish("nonewrong");
 }
 function choose(k){
-  const {c} = item();
+  const {c} = item(), need = ANS(c).length;
+  if(need > 1){ toggleSel(k); return; }
   if(k === c.answer) finish(run.ms / 1000 <= thr(c) ? "fast" : "slow", k);
   else finish("wrong", k);
+}
+function toggleSel(k){
+  const {c} = item(), need = ANS(c).length;
+  if(run.sel.has(k)) run.sel.delete(k); else run.sel.add(k);
+  app.querySelectorAll(".opt[data-k]").forEach(b => b.classList.toggle("sel", run.sel.has(+b.dataset.k)));
+  const btn = app.querySelector("#confirm");
+  if(btn){ btn.disabled = run.sel.size !== need; btn.textContent = `확인 · ${run.sel.size}/${need}`; }
+}
+function confirmMulti(){
+  if(run.stage !== "choose") return;
+  const {c} = item(), A = ANS(c), picked = [...run.sel];
+  if(picked.length !== A.length) return;
+  const ok = picked.every(k => A.includes(k));
+  if(ok) finish(run.ms / 1000 <= thr(c) ? "fast" : "slow", picked);
+  else finish("wrong", picked);
 }
 const GOOD = new Set(["fast", "slow", "mine"]);
 const LABEL = {fast: "빠르게 떠올림", slow: "맞음 · 느림", mine: "내 방법도 맞음", wrong: "오답", idk: "모름", nonewrong: "떠올린 방법이 틀림"};
@@ -537,8 +566,12 @@ function finish(res, k){
   if(!retry) grade(c, res);
   if(res === "wrong" && k != null){
     S.conf = S.conf || {};
-    const key = ansText(c) + "\u0001" + c.options[k].text, v = S.conf[key] || {n: 0};
-    S.conf[key] = {n: v.n + 1, t: S.setNo || 0, at: Date.now()};
+    const A = ANS(c), wrongK = (Array.isArray(k) ? k : [k]).filter(x => !A.includes(x));
+    const missedT = A.filter(x => !(Array.isArray(k) ? k : [k]).includes(x)).map(x => c.options[x].text);
+    for(const w of wrongK){
+      const key = (missedT[0] || ansTexts(c)[0]) + "\u0001" + c.options[w].text, v = S.conf[key] || {n: 0};
+      S.conf[key] = {n: v.n + 1, t: S.setNo || 0, at: Date.now()};
+    }
   }
   save();
   const good = GOOD.has(res);
@@ -580,7 +613,7 @@ function result(){
   const times = first.filter(x => GOOD.has(x.res)).map(x => x.ms);
   const avg = times.length ? (times.reduce((a,b)=>a+b,0)/times.length/1000).toFixed(1) : "–";
   const missed = [...new Set(first.filter(x => !GOOD.has(x.res)).map(x => x.c))];
-  const pairs = first.filter(x => x.res === "wrong").map(x => [x.c, x.c.options[x.k].text]);
+  const pairs = first.filter(x => x.res === "wrong").flatMap(x => (Array.isArray(x.k) ? x.k : [x.k]).filter(k => !ANS(x.c).includes(k)).map(k => [x.c, x.c.options[k].text]));
   app.innerHTML = `
     <div class="top"><span class="label">세트 결과</span><span class="combo mono">최고 콤보 <b>${run.best}</b></span></div>
     <div class="score"><b>${fast}</b><span>/ ${first.length} 빠르게 떠올림</span></div>
@@ -673,8 +706,10 @@ document.addEventListener("keydown", e => {
     if(e.key === "Enter" || e.key === " "){ e.preventDefault(); recall(); }
     else if(e.key === "?" || e.key === "0"){ stopRecall(); finish("idk"); }
   } else if(run.stage === "choose"){
-    if(/^[1-4]$/.test(e.key)){ const b = app.querySelector("#opt-" + (+e.key - 1)); if(b) choose(+b.dataset.k); }
-    else if(e.key === "5"){ noneAsk(); }
+    const no = item().c.options.length;
+    if(/^[1-9]$/.test(e.key) && +e.key <= no){ const b = app.querySelector("#opt-" + (+e.key - 1)); if(b) choose(+b.dataset.k); }
+    else if(e.key === String(no + 1)){ noneAsk(); }
+    else if(e.key === "Enter" && ANS(item().c).length > 1){ e.preventDefault(); confirmMulti(); }
   } else if(run.done && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); next(); }
 });
 
