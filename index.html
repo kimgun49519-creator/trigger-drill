@@ -66,10 +66,11 @@ math{font-size:1.05em}
 .seg button{border:0;background:none;padding:6px 15px;cursor:pointer;font-size:14px}
 .seg button+button{border-left:1px solid var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
-.tabs{display:flex;gap:22px;border-bottom:1px solid var(--rule);overflow-x:auto;scrollbar-width:none}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);border-bottom:1px solid var(--rule)}
 .tabs::-webkit-scrollbar{display:none}
-.tabs button{flex:none;border:0;background:none;padding:6px 0 9px;font-family:var(--f-serif);font-size:18px;font-weight:600;color:var(--faint);cursor:pointer;
-  display:flex;flex-direction:column;align-items:flex-start;line-height:1.3;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button{border:0;background:none;padding:8px 2px 10px;font-family:var(--f-serif);font-size:17px;font-weight:600;color:var(--faint);cursor:pointer;
+  text-align:center;line-height:1.3;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:380px){.tabs button{font-size:15px}}
 .tabs button small{font-family:var(--f-body);font-size:11.5px;font-weight:500;color:var(--faint)}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
 .tabs button[aria-selected="true"] small{color:var(--muted)}
@@ -292,7 +293,10 @@ function tex(str){
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
 const units = () => [...new Set(CARDS.map(c => c.unit))];
-const subjects = () => [...new Set(CARDS.map(c => c.subject))];
+// 상단 과목 탭은 카드가 없어도 항상 이 순서로 4등분 표시
+const SUBJECTS = ["미적분학", "선형대수", "미방·정차", "통계학"];
+const SUBJ_BOOKS = {"미적분학": "경제 기본1 · 경제 기본2"};
+const subjects = () => [...new Set([...SUBJECTS, ...CARDS.map(c => c.subject)])];
 let unitSubj = {};
 function unitAcc(u){
   let seen = 0, miss = 0;
@@ -324,6 +328,10 @@ function weight(c, conf){
 }
 function pick(pool, n){
   const conf = confusedTexts();
+  // 이전 세트에서 막힌 카드는 다음 세트에 반드시 포함 (오래 막힌 것부터)
+  const pend = pool.filter(isPending).sort((a, b) => (S.cards[a.id].last || 0) - (S.cards[b.id].last || 0)).slice(0, n);
+  const pset = new Set(pend);
+  pool = pool.filter(c => !pset.has(c)); n -= pend.length;
   const due = pool.filter(isDue), rest = pool.filter(c => !isDue(c)).sort((a, b) => (S.cards[a.id].due || 0) - (S.cards[b.id].due || 0));
   const items = due.map(c => ({c, w: weight(c, conf)})), out = [];
   while(out.length < n && items.length){
@@ -333,7 +341,7 @@ function pick(pool, n){
     out.push(items.splice(i,1)[0].c);
   }
   while(out.length < n && rest.length) out.push(rest.shift());
-  return shuffle(out);
+  return shuffle(pend.concat(out));
 }
 // 빠름 기준: 문제 글자 수에 비례 (읽는 시간 포함), 설정으로 배율 조절
 const PACES = [["빠듯", 0.75], ["보통", 1], ["여유", 1.4]];
@@ -350,7 +358,8 @@ function home(){
   const seen = CARDS.filter(c => S.cards[c.id] && S.cards[c.id].seen).length;
   const mastered = CARDS.filter(isMastered).length;
   const allU = units(), subs = subjects();
-  if(!subs.includes(S.settings.tab)) S.settings.tab = subs[0];
+  if(S.settings.tab === "통계") S.settings.tab = "통계학";
+  if(!subs.includes(S.settings.tab)) S.settings.tab = subs.find(x => CARDS.some(c => c.subject === x)) || subs[0];
   const tab = S.settings.tab;
   const tabUnits = allU.filter(u => unitSubj[u] === tab);
   const tabBooks = [...new Set(CARDS.filter(c => c.subject === tab).map(c => c.book))];
@@ -363,17 +372,18 @@ function home(){
       <div class="stat"><b>${mastered}</b><small>익힘 (3연속 빠르게)</small></div>
       <div class="stat ${pending.length ? "alert" : ""}"><b>${pending.length}</b><small>재출제 대기</small></div>
     </section>
-    <div class="tabs" role="tablist" id="tabs">${subs.map(s => { const bk = [...new Set(CARDS.filter(c => c.subject === s).map(c => c.book))]; return `<button role="tab" data-s="${esc(s)}" aria-selected="${s===tab}">${esc(s)}<small>${esc(bk.join(" · "))}</small></button>`; }).join("")}</div>
-    <div class="quick" id="quick">
+    <div class="tabs" role="tablist" id="tabs">${subs.map(s => { const bk = [...new Set(CARDS.filter(c => c.subject === s).map(c => c.book))]; return `<button role="tab" data-s="${esc(s)}" aria-selected="${s===tab}">${esc(s)}</button>`; }).join("")}</div>
+    <div class="quick" id="quick" ${tabUnits.length ? "" : "hidden"}>
       <button class="q" data-q="weak"><i style="background:var(--bad)"></i>약한 단원</button>
       <button class="q" data-q="new"><i style="background:var(--track);outline:1px solid var(--rule)"></i>안 푼 단원</button>
       <button class="q" data-q="all">이 과목 전체</button>
       <button class="q" data-q="none">선택 해제</button>
     </div>
-    <div class="tiles" id="units">${tabUnits.map(u => {
+    ${tabUnits.length ? "" : `<p class="lede" style="padding:18px 0;border-bottom:1px solid var(--rule)">${esc(tab)} 카드는 아직 없어요. ${esc(SUBJ_BOOKS[tab] || "")} 연습문제를 보내 주면 추가할게요.</p>`}
+    <div class="tiles" id="units" ${tabUnits.length ? "" : "hidden"}>${tabUnits.map(u => {
       const m = u.match(/^([\d~]+강)\s+(.*)$/) || [null, "", u];
       const p = unitAcc(u), n = CARDS.filter(c => c.unit === u).length;
-      const bk = tabBooks.length > 1 ? `<span class="bk">${esc(CARDS.find(c => c.unit === u).book)}</span>` : "";
+      const bk = `<span class="bk">${esc(CARDS.find(c => c.unit === u).book)}</span>`;
       return `<button class="tile" data-u="${esc(u)}" aria-pressed="${sel.includes(u)}">
         <span class="tn"><span>${esc(m[1])}${bk}</span><span>${p == null ? "–" : Math.round(p*100) + "%"}</span></span>
         <b>${esc(m[2])}</b>
@@ -529,8 +539,6 @@ function finish(res, k){
   const good = GOOD.has(res);
   if(good){ run.combo++; run.best = Math.max(run.best, run.combo); }
   else { run.combo = 0; if(navigator.vibrate) try{ navigator.vibrate(60); }catch(e){} }
-  // 막힌 카드는 같은 세트 3문제 뒤에 한 번 더
-  if(!good && !retry){ const at = Math.min(run.i + 4, run.list.length); run.list.splice(at, 0, {c, retry: true}); }
   run.log.push({c, res, ms, retry, k});
   if(res !== "idk" && res !== "mine" && res !== "nonewrong") reveal(k);
   else if(res === "idk") reveal(null);
@@ -540,7 +548,7 @@ function finish(res, k){
       <h3>${LABEL[res]}${retry ? " (다시)" : ""}<span class="mono">${msTxt}</span></h3>
       <p>${tex(c.key)}</p>
       ${c.algo ? `<span class="algo">${esc(c.algo)} · ${c.algoSrc === "노트" ? "알고리즘 노트" : c.algoSrc === "약점노트" ? "약점 노트" : c.algoSrc === "직접 제안" ? "직접 제안" : "교재 보충"}</span>` : ""}
-      ${!good && !retry ? `<span class="algo">3문제 뒤에 한 번 더 나와요.</span>` : ""}
+      ${!good && !retry ? `<span class="algo">다음 세트에 다시 나와요.</span>` : ""}
     </div>`;
   app.querySelector("#acts").innerHTML = `<button class="btn" id="next">${run.i+1 < run.list.length ? "다음 문제" : "결과 보기"}</button>`;
   app.querySelector("#next").onclick = next;
