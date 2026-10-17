@@ -139,10 +139,10 @@ math mtable{font-size:.95em}
 .score b{font-family:var(--f-mono);font-size:56px;font-weight:600;line-height:1}
 .score span{font-family:var(--f-mono);color:var(--muted);font-size:20px}
 .rows{display:flex;flex-direction:column;border-top:1px solid var(--rule)}
-.row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:start;padding:11px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--rule);font-size:14px}
 .row .mark{font-family:var(--f-mono);font-weight:600}
 .row .mark.o{color:var(--good)} .row .mark.x{color:var(--bad)}
-.row .q{min-width:0;overflow-x:auto;overflow-y:hidden}
+.row .q{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .s{font-family:var(--f-mono);color:var(--muted);font-size:12.5px}
 
 /* Panel */
@@ -382,6 +382,11 @@ function next(){
 }
 
 /* ---------- result ---------- */
+// 결과표에는 문제 원문 대신 "단원 주제 · 출처"만 한 줄로
+function resTag(c){
+  const topic = (c.unit || "").replace(/^[\d~]+강\s*/, "");
+  return esc(topic ? `${topic} · ${c.source}` : c.source);
+}
 function result(){
   stopTimer();
   const L = run.log, right = L.filter(x => x.ok);
@@ -393,7 +398,7 @@ function result(){
     <div class="score"><b>${right.length}</b><span>/ ${L.length}</span></div>
     <p class="lede">정답 평균 반응 <span class="mono">${avg}초</span>${missed.length ? ` · 틀린 ${missed.length}개는 재출제 대기로 들어갔어요.` : " · 전부 맞혔어요."}</p>
     <div class="rows">
-      ${L.map(x => `<div class="row"><span class="mark ${x.ok ? "o" : "x"}">${x.ok ? "O" : "X"}</span><span class="q">${tex(x.c.trigger)}</span><span class="s">${x.ms === null ? "초과" : (x.ms/1000).toFixed(1)+"s"}</span></div>`).join("")}
+      ${L.map(x => `<div class="row"><span class="mark ${x.ok ? "o" : "x"}">${x.ok ? "O" : "X"}</span><span class="q">${resTag(x.c)}</span><span class="s">${x.ms === null ? "초과" : (x.ms/1000).toFixed(1)+"s"}</span></div>`).join("")}
     </div>
     <div class="actions">
       ${missed.length ? `<button class="btn" id="again">틀린 ${missed.length}개 바로 다시</button>` : ""}
