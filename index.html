@@ -303,7 +303,13 @@ function tex(str){
   }).join("");
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
-const units = () => [...new Set(CARDS.map(c => c.unit))];
+const units = () => {
+  const books = [...new Set(CARDS.map(c => c.book))];
+  const bookOf = new Map(CARDS.map(c => [c.unit, c.book]));
+  return [...new Set(CARDS.map(c => c.unit))].sort((a, b) =>
+    books.indexOf(bookOf.get(a)) - books.indexOf(bookOf.get(b)) ||
+    a.localeCompare(b, "ko", {numeric: true}));
+};
 // 상단 과목 탭은 카드가 없어도 항상 이 순서로 4등분 표시
 const SUBJECTS = ["미적분학", "선형대수", "미방·정차", "통계학"];
 const SUBJ_BOOKS = {"미적분학": "경제 기본1 · 경제 기본2"};
@@ -313,6 +319,12 @@ function unitAcc(u){
   let seen = 0, miss = 0;
   for(const c of CARDS) if(c.unit === u){ const s = S.cards[c.id]; if(s){ seen += s.seen; miss += s.miss; } }
   return seen ? Math.max(0, seen - miss) / seen : null;
+}
+// 진도는 정답률과 분리: 반복 횟수가 아니라 답한 서로 다른 카드 수를 센다.
+function unitProgress(u){
+  const cards = CARDS.filter(c => c.unit === u);
+  const answered = cards.filter(c => (S.cards[c.id]?.seen || 0) > 0).length;
+  return answered ? answered / cards.length : null;
 }
 const accColor = p => p == null ? "var(--track)" : p < .5 ? "var(--bad)" : p < .8 ? "var(--mid)" : "var(--good)";
 function activeCards(){
@@ -399,13 +411,13 @@ function home(){
     ${tabUnits.length ? "" : `<p class="lede" style="padding:18px 0;border-bottom:1px solid var(--rule)">${esc(tab)} 카드는 아직 없어요. ${esc(SUBJ_BOOKS[tab] || "")} 연습문제를 보내 주면 추가할게요.</p>`}
     <div class="tiles" id="units" ${tabUnits.length ? "" : "hidden"}>${tabUnits.map(u => {
       const m = u.match(/^([\d~]+강)\s+(.*)$/) || [null, "", u];
-      const p = unitAcc(u), n = CARDS.filter(c => c.unit === u).length;
+      const p = unitProgress(u), n = CARDS.filter(c => c.unit === u).length;
       const bk = `<span class="bk">${esc(CARDS.find(c => c.unit === u).book)}</span>`;
       return `<button class="tile" data-u="${esc(u)}" aria-pressed="${sel.includes(u)}">
-        <span class="tn"><span>${esc(m[1])}${bk}</span><span>${p == null ? "–" : Math.round(p*100) + "%"}</span></span>
+        <span class="tn"><span>${esc(m[1])}${bk}</span><span>${p == null ? "–" : "진도 " + Math.round(p*100) + "%"}</span></span>
         <b>${esc(m[2])}</b>
         <span class="mbar"><span style="width:${p == null ? 0 : Math.round(p*100)}%;background:${accColor(p)}"></span></span>
-        <span class="tc">${n}문제</span>
+        <span class="tc">${p == null ? `전체 ${n}문제` : `${Math.round(p*n)} / ${n}문제 풀어봄`}</span>
       </button>`; }).join("")}</div>
     <p class="selnote">${sel.length ? `${sel.length}개 단원 선택 · ${selCount}문제` : "선택한 단원이 없으면 전체에서 출제해요"}</p>
     <div class="row2">
