@@ -1,5 +1,5 @@
 // 트리거 드릴 서비스 워커: 한 번 접속하면 앱·카드·KaTeX·폰트를 폰에 저장해 오프라인에서도 동작
-const VERSION = "td-v6";
+const VERSION = "td-v7";
 const CORE = ["./", "index.html", "cards.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
   "https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"];
 
