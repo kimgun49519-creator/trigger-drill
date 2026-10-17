@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>트리거 드릴</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="트리거 드릴">
+<meta name="theme-color" content="#17203a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<style>
+/* Layout: one narrow answer-sheet column (max 640px), thumb-zone actions at the bottom; OMR-sheet motif — salmon guide ink on paper / navy. */
+:root{
+  --paper:#f6f4ef; --sheet:#ffffff; --ink:#1d2433; --muted:#667085; --rule:#e6dfd6;
+  --omr:#d9604a; --omr-soft:#fbe6e1; --good:#1f8a5b; --good-soft:#e2f3ea; --bad:#c2412d; --bad-soft:#fbe4df;
+  --bar:#1d2433; --track:#ece7df;
+  --f-body:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#111a30; --sheet:#17203a; --ink:#ece8df; --muted:#9aa3b8; --rule:#2a3555;
+  --omr:#f47e68; --omr-soft:#3a2830; --good:#4cc38a; --good-soft:#163a31; --bad:#f2836f; --bad-soft:#3d2228;
+  --bar:#ece8df; --track:#26314f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#111a30; --sheet:#17203a; --ink:#ece8df; --muted:#9aa3b8; --rule:#2a3555;
+  --omr:#f47e68; --omr-soft:#3a2830; --good:#4cc38a; --good-soft:#163a31; --bad:#f2836f; --bad-soft:#3d2228;
+  --bar:#ece8df; --track:#26314f; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  -webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+.wrap{max-width:640px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 24px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--omr);outline-offset:2px}
+math{font-size:1.05em}
+.label{font-size:12px;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* Home */
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-top:8px}
+.brand h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.01em}
+.brand h1 span{color:var(--omr)}
+.lede{margin:0;color:var(--muted);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border-block:1px solid var(--rule)}
+.stat{padding:12px 4px;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.stat+.stat{border-left:1px dashed var(--rule);padding-left:14px}
+.stat b{font-family:var(--f-mono);font-size:24px;font-weight:600;line-height:1.1}
+.stat small{font-size:12px;color:var(--muted)}
+.stat.alert b{color:var(--omr)}
+.group{display:flex;flex-direction:column;gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid var(--rule);background:var(--sheet);border-radius:999px;padding:7px 13px;font-size:14px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.chip .n{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.chip[aria-pressed="true"]{border-color:var(--omr);background:var(--omr-soft);color:var(--ink)}
+.chip[aria-pressed="true"] .n{color:var(--omr)}
+.seg{display:flex;border:1.5px solid var(--rule);border-radius:10px;overflow:hidden;width:max-content;background:var(--sheet)}
+.seg button{border:0;background:none;padding:7px 16px;cursor:pointer;font-family:var(--f-mono);font-size:14px}
+.seg button+button{border-left:1.5px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.actions{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:8px}
+.btn{border:0;border-radius:14px;padding:16px;font-size:17px;font-weight:700;cursor:pointer;background:var(--ink);color:var(--paper);width:100%}
+.btn.alt{background:var(--sheet);color:var(--ink);border:1.5px solid var(--rule);font-weight:600}
+.btn.alt b{color:var(--omr);font-family:var(--f-mono)}
+.btn:disabled{opacity:.4;cursor:default}
+.linkrow{display:flex;justify-content:center;gap:18px;flex-wrap:wrap}
+.linkrow button{background:none;border:0;color:var(--muted);font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:4px}
+
+/* Drill */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.quit{background:none;border:0;color:var(--muted);font-size:14px;cursor:pointer;padding:6px 0}
+.combo{font-family:var(--f-mono);font-size:14px;color:var(--muted)}
+.combo b{color:var(--omr);font-size:16px}
+.timer{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.track{height:8px;background:var(--track);border-radius:4px;overflow:hidden}
+.fill{height:100%;background:var(--bar);transform-origin:left;width:100%}
+.fill.low{background:var(--omr)}
+.secs{font-family:var(--f-mono);font-weight:600;font-size:15px;min-width:3.4ch;text-align:right}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.meta .unit{color:var(--omr);font-weight:600;letter-spacing:.02em}
+.trigger{font-size:18px;font-weight:500;line-height:1.65;margin:0;overflow-x:auto;overflow-y:hidden}
+.opts{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.opt{width:100%;display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start;text-align:left;
+  background:var(--sheet);border:1.5px solid var(--rule);border-radius:12px;padding:12px 14px;cursor:pointer;font-size:15px;line-height:1.55}
+.opt:active:not(:disabled){transform:scale(.99)}
+.opt:disabled{cursor:default}
+.bub{width:24px;height:30px;border:1.8px solid var(--omr);border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-size:12px;color:var(--omr);margin-top:-2px}
+.opt .t{min-width:0;overflow-x:auto;overflow-y:hidden}
+.opt .why{grid-column:2;font-size:13.5px;color:var(--muted);border-top:1px dashed var(--rule);padding-top:8px;margin-top:2px}
+.opt.right{border-color:var(--good);background:var(--good-soft)}
+.opt.right .bub{background:var(--good);border-color:var(--good);color:var(--sheet)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt.wrong .bub{background:var(--bad);border-color:var(--bad);color:var(--sheet)}
+.opt.dim{opacity:.72}
+.verdict{display:flex;flex-direction:column;gap:6px;border-left:4px solid var(--good);padding:4px 0 4px 12px}
+.verdict.bad{border-color:var(--bad)}
+.verdict h3{margin:0;font-size:16px;display:flex;justify-content:space-between;gap:8px}
+.verdict h3 .mono{font-size:13px;color:var(--muted);font-weight:500}
+.verdict p{margin:0;font-size:14.5px;overflow-x:auto;overflow-y:hidden}
+.verdict .algo{font-size:12px;color:var(--muted);letter-spacing:.02em}
+.units{display:flex;flex-direction:column;gap:14px}
+.row2{display:flex;flex-wrap:wrap;gap:16px 28px}
+math mtable{font-size:.95em}
+.drill-actions{position:sticky;bottom:0;padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,var(--paper) 70%,transparent)}
+
+/* Result */
+.score{display:flex;align-items:baseline;gap:10px;padding-top:12px}
+.score b{font-family:var(--f-mono);font-size:56px;font-weight:600;line-height:1}
+.score span{font-family:var(--f-mono);color:var(--muted);font-size:20px}
+.rows{display:flex;flex-direction:column;border-top:1px solid var(--rule)}
+.row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:start;padding:11px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.row .mark{font-family:var(--f-mono);font-weight:600}
+.row .mark.o{color:var(--good)} .row .mark.x{color:var(--bad)}
+.row .q{min-width:0;overflow-x:auto;overflow-y:hidden}
+.row .s{font-family:var(--f-mono);color:var(--muted);font-size:12.5px}
+
+/* Panel */
+.panel{position:fixed;inset:0;background:rgba(10,14,25,.5);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.panel>div{background:var(--sheet);width:100%;max-width:640px;border-radius:18px 18px 0 0;display:flex;flex-direction:column;gap:12px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px calc(18px + env(safe-area-inset-bottom,0px))}
+.panel h2{margin:0;font-size:18px}
+.panel p{margin:0;font-size:14px;color:var(--muted)}
+.panel textarea{width:100%;min-height:140px;border:1.5px solid var(--rule);border-radius:10px;padding:10px;font-family:var(--f-mono);font-size:12px;background:var(--paper);color:var(--ink);resize:vertical}
+.panel .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.toast{font-size:13px;color:var(--good);min-height:1.2em}
+@media (min-width:700px){.trigger{font-size:20px}.opt{font-size:16px}}
+@media (prefers-reduced-motion:reduce){.opt:active:not(:disabled){transform:none}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap" id="app"></div>
+
+<script>
+(() => {
+"use strict";
+const STORE = "trigger-drill-v1";
+let CARDS = [];
+let S = load();
+let run = null;                // current drill
+const app = document.getElementById("app");
+
+/* ---------- storage ---------- */
+function load(){
+  const def = () => ({units:[], size:10, limit:10});
+  try{ const s = JSON.parse(localStorage.getItem(STORE)); if(s && s.cards){ s.settings = Object.assign(def(), s.settings || {}); return s; } }catch(e){}
+  return {cards:{}, settings:def()};
+}
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){} }
+const st = id => S.cards[id] || (S.cards[id] = {box:0, miss:0, seen:0});
+const isPending = c => { const s = S.cards[c.id]; return !!(s && s.box === 0 && s.miss > 0); };
+
+const lim = () => S.settings.limit || 10;
+/* ---------- helpers ---------- */
+const esc = s => s.replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+function tex(str){
+  // render $...$ with KaTeX as native MathML (no CSS/fonts needed, works offline)
+  const parts = str.split(/(\$[^$]+\$)/g);
+  return parts.map(p => {
+    if(p.length > 2 && p[0] === "$" && p[p.length-1] === "$"){
+      const src = p.slice(1, -1);
+      if(window.katex){ try{ return katex.renderToString(src, {output:"mathml", throwOnError:false}); }catch(e){} }
+      return "<code>" + esc(src) + "</code>";
+    }
+    return esc(p);
+  }).join("");
+}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const units = () => [...new Set(CARDS.map(c => c.unit))];
+const subjects = () => [...new Set(CARDS.map(c => c.subject))];
+let unitSubj = {};
+function activeCards(){
+  const u = S.settings.units;
+  return CARDS.filter(c => !u.length || u.includes(c.unit));
+}
+function weight(c){
+  const s = S.cards[c.id];
+  if(!s || !s.seen) return 2;
+  if(s.box === 0 && s.miss > 0) return 4;
+  return 1 / (1 + s.box);
+}
+function pick(pool, n){
+  const items = pool.map(c => ({c, w: weight(c)})), out = [];
+  while(out.length < n && items.length){
+    const tot = items.reduce((a,b) => a + b.w, 0);
+    let r = Math.random() * tot, i = 0;
+    for(; i < items.length - 1; i++){ r -= items[i].w; if(r <= 0) break; }
+    out.push(items.splice(i,1)[0].c);
+  }
+  return out;
+}
+
+/* ---------- home ---------- */
+function home(){
+  stopTimer(); run = null;
+  const pool = activeCards();
+  const pending = CARDS.filter(isPending);
+  const seen = CARDS.filter(c => S.cards[c.id] && S.cards[c.id].seen).length;
+  const mastered = CARDS.filter(c => S.cards[c.id] && S.cards[c.id].box >= 3).length;
+  const allU = units();
+  app.innerHTML = `
+    <header class="brand"><h1>트리거 <span>드릴</span></h1><span class="label mono">${CARDS.length}문제</span></header>
+    <p class="lede">문제 조건을 보고 꺼낼 정리·방법을 고르세요. 계산은 하지 않습니다.</p>
+    <section class="stats" aria-label="학습 현황">
+      <div class="stat"><b>${seen}<small style="font-size:14px">/${CARDS.length}</small></b><small>풀어 본 카드</small></div>
+      <div class="stat"><b>${mastered}</b><small>3연속 이상 정답</small></div>
+      <div class="stat ${pending.length ? "alert" : ""}"><b>${pending.length}</b><small>재출제 대기</small></div>
+    </section>
+    <div id="units" class="units">
+      <div class="chips"><button class="chip" id="u-all" aria-pressed="${!S.settings.units.length}">전체 <span class="n">${CARDS.length}</span></button></div>
+      ${subjects().map((sj,si) => `<section class="group">
+        <span class="label">${esc(sj)}</span>
+        <div class="chips">${allU.filter(u => unitSubj[u] === sj).map(u => { const i = allU.indexOf(u); return `<button class="chip" id="u-${i}" data-u="${esc(u)}" aria-pressed="${S.settings.units.includes(u)}">${esc(u)} <span class="n">${CARDS.filter(c=>c.unit===u).length}</span></button>`; }).join("")}</div>
+      </section>`).join("")}
+    </div>
+    <div class="row2">
+      <section class="group">
+        <span class="label">한 세트</span>
+        <div class="seg" id="size">${[5,10,15].map(n => `<button data-n="${n}" aria-pressed="${S.settings.size===n}">${n}문제</button>`).join("")}</div>
+      </section>
+      <section class="group">
+        <span class="label">제한 시간</span>
+        <div class="seg" id="limit">${[10,15,20].map(n => `<button data-n="${n}" aria-pressed="${lim()===n}">${n}초</button>`).join("")}</div>
+      </section>
+    </div>
+    <div class="actions">
+      <button class="btn" id="go" ${pool.length ? "" : "disabled"}>시작 · ${Math.min(S.settings.size, pool.length)}문제</button>
+      <button class="btn alt" id="redo" ${pending.length ? "" : "disabled"}>틀린 것만 다시 <b>${pending.length}</b></button>
+      <div class="linkrow"><button id="backup">기록 백업·복원</button><button id="reset">기록 초기화</button></div>
+    </div>`;
+  app.querySelector("#units").onclick = e => {
+    const b = e.target.closest(".chip"); if(!b) return;
+    if(b.id === "u-all") S.settings.units = [];
+    else { const u = b.dataset.u, L = S.settings.units; S.settings.units = L.includes(u) ? L.filter(x=>x!==u) : [...L,u]; }
+    save(); home();
+  };
+  app.querySelector("#size").onclick = e => { const b = e.target.closest("button"); if(!b) return; S.settings.size = +b.dataset.n; save(); home(); };
+  app.querySelector("#limit").onclick = e => { const b = e.target.closest("button"); if(!b) return; S.settings.limit = +b.dataset.n; save(); home(); };
+  app.querySelector("#go").onclick = () => start(pick(pool, S.settings.size));
+  app.querySelector("#redo").onclick = () => start(shuffle(pending.slice()).slice(0, 15));
+  app.querySelector("#backup").onclick = backupPanel;
+  app.querySelector("#reset").onclick = resetPanel;
+}
+
+/* ---------- drill ---------- */
+let raf = 0, t0 = 0;
+function stopTimer(){ cancelAnimationFrame(raf); raf = 0; }
+function start(list){
+  if(!list.length) return;
+  run = {list, i:0, combo:0, best:0, log:[]};
+  question();
+}
+function question(){
+  const c = run.list[run.i];
+  run.order = shuffle(c.options.map((_,k) => k));
+  run.done = false;
+  app.innerHTML = `
+    <div class="top">
+      <button class="quit" id="quit">← 그만하기</button>
+      <span class="combo mono">${run.i+1} / ${run.list.length}${run.combo >= 2 ? ` · 콤보 <b>${run.combo}</b>` : ""}</span>
+    </div>
+    <div class="timer" aria-hidden="true"><div class="track"><div class="fill" id="fill"></div></div><span class="secs" id="secs">${lim().toFixed(1)}</span></div>
+    <article class="sheet">
+      <div class="meta"><span class="unit">${esc(c.unit)}</span><span>${esc(c.source || "")}</span></div>
+      <p class="trigger">${tex(c.trigger)}</p>
+      <ol class="opts" id="opts">
+        ${run.order.map((k,pos) => `<li><button class="opt" data-k="${k}" id="opt-${pos}"><span class="bub">${pos+1}</span><span class="t">${tex(c.options[k].text)}</span></button></li>`).join("")}
+      </ol>
+      <div id="fb"></div>
+    </article>
+    <div class="drill-actions" id="next-wrap" hidden><button class="btn" id="next">${run.i+1 < run.list.length ? "다음 문제" : "결과 보기"}</button></div>`;
+  app.querySelector("#quit").onclick = () => run.log.length ? result() : home();
+  app.querySelector("#opts").onclick = e => { const b = e.target.closest(".opt"); if(b && !run.done) answer(+b.dataset.k); };
+  app.querySelector("#next").onclick = next;
+  window.scrollTo(0,0);
+  t0 = performance.now();
+  const fill = app.querySelector("#fill"), secs = app.querySelector("#secs");
+  const tick = now => {
+    const left = Math.max(0, lim() - (now - t0)/1000);
+    fill.style.transform = `scaleX(${left/lim()})`;
+    fill.classList.toggle("low", left <= 3);
+    secs.textContent = left.toFixed(1);
+    if(left <= 0){ answer(null); return; }
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+function answer(k){
+  if(run.done) return;
+  run.done = true; stopTimer();
+  const c = run.list[run.i];
+  const ms = performance.now() - t0;
+  const ok = k === c.answer;
+  const s = st(c.id); s.seen++; s.last = Date.now();
+  if(ok){ s.box = Math.min(s.box + 1, 5); run.combo++; run.best = Math.max(run.best, run.combo); }
+  else { s.box = 0; s.miss++; run.combo = 0; if(navigator.vibrate) try{ navigator.vibrate(60); }catch(e){} }
+  save();
+  run.log.push({c, ok, ms: k === null ? null : ms});
+  app.querySelectorAll(".opt").forEach(b => {
+    const kk = +b.dataset.k; b.disabled = true;
+    b.classList.add(kk === c.answer ? "right" : kk === k ? "wrong" : "dim");
+    b.insertAdjacentHTML("beforeend", `<span class="why">${tex(c.options[kk].why)}</span>`);
+  });
+  const head = k === null ? "시간 초과" : ok ? "정답" : "오답";
+  app.querySelector("#fb").innerHTML = `
+    <div class="verdict ${ok ? "" : "bad"}">
+      <h3>${head}<span class="mono">${k === null ? `${lim()}.0초+` : (ms/1000).toFixed(1) + "초"}</span></h3>
+      <p>${tex(c.key)}</p>
+      ${c.algo ? `<span class="algo">${esc(c.algo)} · ${c.algoSrc === "노트" ? "알고리즘 노트" : c.algoSrc === "약점노트" ? "약점 노트" : "교재 보충"}</span>` : ""}
+    </div>`;
+  app.querySelector("#next-wrap").hidden = false;
+  const fb = app.querySelector("#fb");
+  if(!ok) setTimeout(() => fb.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"nearest"}), 50);
+}
+function next(){
+  run.i++;
+  if(run.i < run.list.length) question(); else result();
+}
+
+/* ---------- result ---------- */
+function result(){
+  stopTimer();
+  const L = run.log, right = L.filter(x => x.ok);
+  const times = right.map(x => x.ms).filter(Boolean);
+  const avg = times.length ? (times.reduce((a,b)=>a+b,0)/times.length/1000).toFixed(1) : "–";
+  const missed = L.filter(x => !x.ok).map(x => x.c);
+  app.innerHTML = `
+    <div class="top"><span class="label">세트 결과</span><span class="combo mono">최고 콤보 <b>${run.best}</b></span></div>
+    <div class="score"><b>${right.length}</b><span>/ ${L.length}</span></div>
+    <p class="lede">정답 평균 반응 <span class="mono">${avg}초</span>${missed.length ? ` · 틀린 ${missed.length}개는 재출제 대기로 들어갔어요.` : " · 전부 맞혔어요."}</p>
+    <div class="rows">
+      ${L.map(x => `<div class="row"><span class="mark ${x.ok ? "o" : "x"}">${x.ok ? "O" : "X"}</span><span class="q">${tex(x.c.trigger)}</span><span class="s">${x.ms === null ? "초과" : (x.ms/1000).toFixed(1)+"s"}</span></div>`).join("")}
+    </div>
+    <div class="actions">
+      ${missed.length ? `<button class="btn" id="again">틀린 ${missed.length}개 바로 다시</button>` : ""}
+      <button class="btn ${missed.length ? "alt" : ""}" id="home">처음으로</button>
+    </div>`;
+  const again = app.querySelector("#again");
+  if(again) again.onclick = () => start(shuffle(missed.slice()));
+  app.querySelector("#home").onclick = home;
+  window.scrollTo(0,0);
+}
+
+/* ---------- panels ---------- */
+function panel(html){
+  const p = document.createElement("div"); p.className = "panel";
+  p.innerHTML = `<div role="dialog" aria-modal="true">${html}</div>`;
+  p.onclick = e => { if(e.target === p) p.remove(); };
+  document.body.appendChild(p); return p;
+}
+function backupPanel(){
+  const p = panel(`
+    <h2>기록 백업·복원</h2>
+    <p>아래 글자를 복사해 메모 앱에 보관하세요. 다른 기기에서는 여기에 붙여 넣고 복원을 누르면 됩니다.</p>
+    <textarea id="bk" spellcheck="false">${esc(JSON.stringify(S))}</textarea>
+    <div class="toast" id="bk-msg"></div>
+    <div class="two"><button class="btn alt" id="bk-copy">복사</button><button class="btn" id="bk-load">붙여 넣은 기록으로 복원</button></div>
+    <button class="btn alt" id="bk-close">닫기</button>`);
+  const ta = p.querySelector("#bk"), msg = p.querySelector("#bk-msg");
+  p.querySelector("#bk-copy").onclick = () => {
+    const done = () => { msg.style.color = ""; msg.textContent = "복사했어요."; };
+    if(navigator.clipboard) navigator.clipboard.writeText(ta.value).then(done, () => { ta.select(); msg.textContent = "선택해 두었어요. 직접 복사하세요."; });
+    else { ta.select(); msg.textContent = "선택해 두었어요. 직접 복사하세요."; }
+  };
+  p.querySelector("#bk-load").onclick = () => {
+    try{ const s = JSON.parse(ta.value); if(!s || typeof s.cards !== "object") throw 0;
+      S = Object.assign({settings:{units:[],size:10}}, s); save(); p.remove(); home(); }
+    catch(e){ msg.style.color = "var(--bad)"; msg.textContent = "기록 형식이 아니에요. 백업한 글자 전체를 붙여 넣었는지 확인하세요."; }
+  };
+  p.querySelector("#bk-close").onclick = () => p.remove();
+}
+function resetPanel(){
+  const p = panel(`
+    <h2>기록을 모두 지울까요?</h2>
+    <p>풀어 본 카드, 정답 횟수, 재출제 대기 목록이 이 기기에서 삭제됩니다. 카드 자체는 그대로 남습니다.</p>
+    <div class="two"><button class="btn alt" id="rs-no">취소</button><button class="btn" id="rs-yes" style="background:var(--bad)">지우기</button></div>`);
+  p.querySelector("#rs-no").onclick = () => p.remove();
+  p.querySelector("#rs-yes").onclick = () => { S = {cards:{}, settings:S.settings}; save(); p.remove(); home(); };
+}
+
+/* ---------- keyboard (Mac/iPad keyboard) ---------- */
+document.addEventListener("keydown", e => {
+  if(!run || document.querySelector(".panel")) return;
+  if(!run.done && /^[1-4]$/.test(e.key)){ const b = app.querySelector("#opt-" + (+e.key - 1)); if(b) answer(+b.dataset.k); }
+  else if(run.done && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); next(); }
+});
+
+/* ---------- boot ---------- */
+fetch("cards.json", {cache:"no-cache"}).then(r => { if(!r.ok) throw 0; return r.json(); })
+  .then(c => { CARDS = c; CARDS.forEach(x => unitSubj[x.unit] = x.subject); const U = new Set(units()); S.settings.units = S.settings.units.filter(u => U.has(u)); home(); })
+  .catch(() => { app.innerHTML = `<p class="lede">카드 파일(cards.json)을 불러오지 못했어요. 인터넷에 한 번 연결한 뒤 다시 열어 주세요.</p>`; });
+if("serviceWorker" in navigator && location.protocol === "https:"){
+  try{ navigator.serviceWorker.register("sw.js").catch(() => {}); }catch(e){}
+}
+})();
+</script>
+
+</body>
+</html>
