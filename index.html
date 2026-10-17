@@ -90,9 +90,12 @@ math{font-size:1.05em}
 .tile .tn{font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;gap:6px;letter-spacing:.04em}
 .tile .bk{margin-left:6px;font-size:10.5px;color:var(--faint)}
 .tile b{font-family:var(--f-serif);font-size:15px;font-weight:600;line-height:1.35;flex:1}
-.tile .tc{font-size:11.5px;color:var(--faint)}
-.mbar{display:block;height:3px;background:var(--track);overflow:hidden}
-.mbar>span{display:block;height:100%}
+.tile .tc{font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;gap:6px}
+.tile .tc em{font-style:normal;color:var(--muted);white-space:nowrap}
+.tile .tn>span:last-child{white-space:nowrap}
+.mbar{display:flex;height:3px;background:var(--track);overflow:hidden}
+.mbar>span{display:block;height:100%;background:var(--omr)}
+.mbar>.l2{opacity:.5} .mbar>.l1{opacity:.22}
 .selnote{margin:0;font-size:13px;color:var(--muted)}
 .actions{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:10px}
 .btn{border:1px solid var(--ink);border-radius:4px;padding:15px;font-size:16px;font-weight:600;letter-spacing:.01em;cursor:pointer;background:var(--ink);color:var(--paper);width:100%}
@@ -326,6 +329,17 @@ function unitProgress(u){
   const answered = cards.filter(c => (S.cards[c.id]?.seen || 0) > 0).length;
   return answered ? answered / cards.length : null;
 }
+// 익힘 단계: 3연속 빠르게(익힘) / 1~2연속(익숙) / 풀었지만 연속 0(학습 중)
+function unitLevels(u){
+  const r = {n: 0, ok: 0, mid: 0, learn: 0};
+  for(const c of CARDS) if(c.unit === u){
+    r.n++; const s = S.cards[c.id];
+    if(!s || !s.seen) continue;
+    const k = s.streak || 0;
+    if(k >= 3) r.ok++; else if(k >= 1) r.mid++; else r.learn++;
+  }
+  return r;
+}
 const accColor = p => p == null ? "var(--track)" : p < .5 ? "var(--bad)" : p < .8 ? "var(--mid)" : "var(--good)";
 function activeCards(){
   const u = S.settings.units;
@@ -411,13 +425,13 @@ function home(){
     ${tabUnits.length ? "" : `<p class="lede" style="padding:18px 0;border-bottom:1px solid var(--rule)">${esc(tab)} 카드는 아직 없어요. ${esc(SUBJ_BOOKS[tab] || "")} 연습문제를 보내 주면 추가할게요.</p>`}
     <div class="tiles" id="units" ${tabUnits.length ? "" : "hidden"}>${tabUnits.map(u => {
       const m = u.match(/^([\d~]+강)\s+(.*)$/) || [null, "", u];
-      const p = unitProgress(u), n = CARDS.filter(c => c.unit === u).length;
+      const p = unitProgress(u), L = unitLevels(u), n = L.n, pc = x => (x / n * 100).toFixed(2) + "%";
       const bk = `<span class="bk">${esc(CARDS.find(c => c.unit === u).book)}</span>`;
       return `<button class="tile" data-u="${esc(u)}" aria-pressed="${sel.includes(u)}">
         <span class="tn"><span>${esc(m[1])}${bk}</span><span>${p == null ? "–" : "진도 " + Math.round(p*100) + "%"}</span></span>
         <b>${esc(m[2])}</b>
-        <span class="mbar"><span style="width:${p == null ? 0 : Math.round(p*100)}%;background:${accColor(p)}"></span></span>
-        <span class="tc">${p == null ? `전체 ${n}문제` : `${Math.round(p*n)} / ${n}문제 풀어봄`}</span>
+        <span class="mbar"><span style="width:${pc(L.ok)}"></span><span class="l2" style="width:${pc(L.mid)}"></span><span class="l1" style="width:${pc(L.learn)}"></span></span>
+        <span class="tc">${p == null ? `<span>전체 ${n}문제</span>` : `<span>${L.ok + L.mid + L.learn} / ${n}문제 풀어봄</span><em>익힘 ${Math.round(L.ok / n * 100)}%</em>`}</span>
       </button>`; }).join("")}</div>
     <p class="selnote">${sel.length ? `${sel.length}개 단원 선택 · ${selCount}문제` : "선택한 단원이 없으면 전체에서 출제해요"}</p>
     <div class="row2">
