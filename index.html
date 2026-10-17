@@ -253,7 +253,11 @@ async function sync(){
     else { const g = await gh("/gists", {method: "POST", body: JSON.stringify({description: "트리거 드릴 학습 기록 (앱이 자동 관리)", public: false, files: {[GFILE]: {content}}})}); SY.gist = g.id; }
     SY.at = Date.now(); SY.err = "";
   }catch(e){
-    SY.err = e.status === 401 ? "토큰이 맞지 않거나 만료됐어요." : e.status === 403 ? "토큰에 gist 권한이 없어요." : e.status === 404 ? "기록 Gist를 찾지 못했어요. 다시 동기화하면 새로 만듭니다." : "인터넷 연결을 확인하세요.";
+    const why = String((e && e.message) || e);
+    SY.err = e.status === 401 ? "토큰이 맞지 않거나 만료됐어요." : e.status === 403 ? "토큰에 gist 권한이 없어요." : e.status === 404 ? "기록 Gist를 찾지 못했어요. 다시 동기화하면 새로 만듭니다."
+      : e.status ? `GitHub 응답 오류(${e.status})예요. 잠시 뒤 다시 시도해 주세요.`
+      : /header|헤더/i.test(why) ? "토큰에 잘못된 글자가 섞여 있어요. 토큰만 다시 복사해 붙여 넣어 주세요."
+      : `GitHub에 접속하지 못했어요. 인터넷·VPN·콘텐츠 차단기를 확인해 주세요. (${why})`;
     if(e.status === 404) SY.gist = "";
   }finally{
     syncing = false; saveSync(); updateSyncUI();
@@ -682,7 +686,7 @@ function syncPanel(){
     p.querySelector("#sy-off").onclick = () => { SY = {}; saveSync(); close(); };
   } else {
     p.querySelector("#sy-on").onclick = async () => {
-      const t = p.querySelector("#sy-tok").value.trim(), msg = p.querySelector("#sy-msg");
+      const t = p.querySelector("#sy-tok").value.replace(/[^A-Za-z0-9_]/g, ""), msg = p.querySelector("#sy-msg");
       if(!t){ msg.style.color = "var(--bad)"; msg.textContent = "토큰을 붙여 넣으세요."; return; }
       SY = {token: t}; saveSync(); await sync();
       if(SY.err){ const e = SY.err; SY = {}; saveSync(); msg.style.color = "var(--bad)"; msg.textContent = e; }
