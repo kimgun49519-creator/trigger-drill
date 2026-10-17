@@ -219,10 +219,16 @@ function mergeState(a, b){
     const cur = conf[k];
     conf[k] = cur ? {n: Math.max(cur.n, v.n), t: Math.max(cur.t, v.t), at: Math.max(cur.at || 0, v.at || 0)} : Object.assign({}, v);
   }
-  return {cards: out, resetAt: r, setNo: Math.max(a.setNo || 0, b.setNo || 0), conf};
+  // 미완료 목록: 카드별로 세트에 들어간 시각. 그 뒤에 답했으면(last가 더 크면) 미완료가 아님
+  const left = {};
+  for(const src of [a.left || {}, b.left || {}]) for(const id in src){
+    const t = src[id]; if(t < r || t <= ((out[id] && out[id].last) || 0)) continue;
+    left[id] = Math.max(left[id] || 0, t);
+  }
+  return {cards: out, resetAt: r, setNo: Math.max(a.setNo || 0, b.setNo || 0), conf, left};
 }
-function applyMerge(m){ S.cards = m.cards; S.resetAt = m.resetAt; S.setNo = m.setNo; S.conf = m.conf; save(); }
-const shareable = () => ({cards: S.cards, resetAt: S.resetAt || 0, setNo: S.setNo || 0, conf: S.conf || {}});
+function applyMerge(m){ S.cards = m.cards; S.resetAt = m.resetAt; S.setNo = m.setNo; S.conf = m.conf; S.left = m.left; save(); }
+const shareable = () => ({cards: S.cards, resetAt: S.resetAt || 0, setNo: S.setNo || 0, conf: S.conf || {}, left: S.left || {}});
 async function gh(path, opt){
   opt = opt || {};
   const h = {Accept: "application/vnd.github+json", Authorization: "Bearer " + SY.token};
@@ -352,6 +358,8 @@ const ANS = c => Array.isArray(c.answer) ? c.answer : [c.answer];
 const ansTexts = c => ANS(c).map(k => c.options[k].text);
 const ansText = c => ansTexts(c).join(" + ");
 const isDue = c => { const s = S.cards[c.id]; return !s || !s.seen || (s.due || 0) <= (S.setNo || 0); };
+// 세트에 들어갔지만 아직 답하지 않은 카드 (중간에 나간 세트)
+const isLeft = c => { const t = (S.left || {})[c.id]; return !!t && t > ((S.cards[c.id] && S.cards[c.id].last) || 0); };
 const isMastered = c => { const s = S.cards[c.id]; return !!(s && (s.streak || 0) >= 3); };
 const flagged = () => CARDS.filter(c => S.cards[c.id] && S.cards[c.id].flag);
 // 최근 20세트 안에 헷갈린 풀이법 (정답·고른 것 양쪽)
@@ -370,8 +378,14 @@ function pick(pool, n){
   const conf = confusedTexts();
   // 이전 세트에서 막힌 카드는 다음 세트에 반드시 포함 (오래 막힌 것부터)
   const pend = pool.filter(isPending).sort((a, b) => (S.cards[a.id].last || 0) - (S.cards[b.id].last || 0)).slice(0, n);
-  const pset = new Set(pend);
+  let pset = new Set(pend);
   pool = pool.filter(c => !pset.has(c)); n -= pend.length;
+  // 그다음: 지난 세트에서 못 푼 카드(먼저 들어간 것부터) → 한 번도 안 푼 카드 (확정)
+  const left = pool.filter(isLeft).sort((a, b) => S.left[a.id] - S.left[b.id]).slice(0, n);
+  pset = new Set(left); pool = pool.filter(c => !pset.has(c)); n -= left.length;
+  const fresh = shuffle(pool.filter(c => !S.cards[c.id] || !S.cards[c.id].seen)).slice(0, n);
+  pset = new Set(fresh); pool = pool.filter(c => !pset.has(c)); n -= fresh.length;
+  pend.push(...left, ...fresh);
   const due = pool.filter(isDue), rest = pool.filter(c => !isDue(c)).sort((a, b) => (S.cards[a.id].due || 0) - (S.cards[b.id].due || 0));
   const items = due.map(c => ({c, w: weight(c, conf)})), out = [];
   while(out.length < n && items.length){
@@ -483,6 +497,10 @@ function stopTimer(){ cancelAnimationFrame(raf); raf = 0; }
 function start(list, counted){
   if(!list.length) return;
   if(!counted) S.setNo = (S.setNo || 0) + 1;
+  S.left = S.left || {};
+  const now = Date.now();
+  for(const id in S.left) if(!isLeft({id})) delete S.left[id];
+  for(const c of list) if(!isLeft(c)) S.left[c.id] = now;
   save();
   run = {list: list.map(c => ({c, retry: false})), i: 0, combo: 0, best: 0, log: []};
   question();
